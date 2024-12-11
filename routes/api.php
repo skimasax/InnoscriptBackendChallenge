@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\NewsApi\NewsApiController;
-use App\Http\Controllers\NewsApiOrg\NewsApiOrgController;
+
+use App\Http\Controllers\NewsController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -16,4 +16,5 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::get('news-api-news',[NewsApiOrgController::class, 'index']);
+
+Route::apiResource('/news', NewsController::class);

@@ -1,27 +1,30 @@
 <?php
 
-namespace App\Http\Controllers\NewsApiOrg;
+namespace App\Http\Controllers;
 
 use App\Traits\ApiResponse;
 use Illuminate\Http\Request;
-use App\Services\NewsApiOrgService;
-use App\Http\Controllers\Controller;
+use App\Services\NewsService;
 use App\Http\Resources\NewsResource;
 
-class NewsApiOrgController extends Controller
+class NewsController extends Controller
 {
-    protected $newsApiOrgService;
+    protected $newsService;
     
-    public function __construct(NewsApiOrgService $newsApiOrgService)
+    public function __construct(NewsService $newsService)
     {
-        $this->newsApiOrgService = $newsApiOrgService;
+        $this->newsService = $newsService;
     }
 
     public function index()
     {
         $category = request('category');
+        $author = request('author');
+        $source = request('source');
+        $startDate = request('startDate');
+        $endDate = request('endDate');
         try {
-            $response = $this->newsApiOrgService->getNews($category);
+            $response = $this->newsService->getNews($category,$author,$source,$startDate,$endDate);
             $data = NewsResource::collection($response);
             return (new ApiResponse(
                 [
