@@ -42,4 +42,5 @@ class NewsController extends Controller
             ))->errorResponse();
         }
     }
+
 }

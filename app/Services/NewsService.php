@@ -10,23 +10,25 @@ class NewsService
 
     public function getNews($category = null, $author = null, $source = null, $startDate = null, $endDate = null)
     {
-
-        $newsApiOrgUrl = config('constants.newsapi-org.baseurl');
-        $newsApiOrgKey = config('constants.newsapi-org.apiKey');
-        $newsApiUrl = config('constants.newsapi.baseurl');
-
-
-
-        // Initialize empty news collection
-        $allNews = [];
-
-        //get the News from the DB with the search filters'
         $storedNews = $this->queryDbForNews($category, $author, $source, $startDate, $endDate);
-
-        // If news is found in the database, return it
         if ($storedNews->isNotEmpty()) {
             return $storedNews;
         }
+
+        // Fetch fresh news data from third-party sources if not found in DB
+        $this->fetchNewsFromThirdParty($category, $startDate, $endDate);
+        return News::all();
+    }
+
+    public function fetchNewsFromThirdParty($category = null, $startDate = null, $endDate = null)
+    {
+        $newsApiOrgUrl = config('constants.newsapi-org.baseurl');
+        $newsApiOrgKey = config('constants.newsapi-org.apiKey');
+        $newsApiUrl = config('constants.newsapi.baseurl');
+        $newYorkNewsApiUrl = config('constants.newyork.baseurl');
+        $newYorkNewsApiKey = config('constants.newyork.apiKey');
+
+        $allNews = [];
 
         // Fetch data from NewsAPI.org
         $newsApiOrgQuery = $newsApiOrgUrl . "?q=" . $category . "&apiKey=" . $newsApiOrgKey;
@@ -50,19 +52,17 @@ class NewsService
             }
         }
 
-        // // Fetch data from BBC News
-        // $bbcNewsQuery = $bbcNewsUrl . "?q=" . $category;
-        // $bbcNewsResponse = Http::get($bbcNewsQuery);
+        // Fetch data from New York Times API
+        $newyorkNewsQuery = $newYorkNewsApiUrl . $category . ".json?api-key=" . $newYorkNewsApiKey;
+        $newYorkNewsResponse = Http::get($newyorkNewsQuery);
 
-        // if ($bbcNewsResponse->successful()) {
-        //     $bbcNews = $bbcNewsResponse->json()['data']['stories'];
-        //     foreach ($bbcNews as $article) {
-        //         $allNews[] = $this->normalizeArticleData($article, 'bbc');
-        //     }
-        // }
+        if ($newYorkNewsResponse->successful()) {
+            $newsFromApi = json_decode($newYorkNewsResponse->body());
+            foreach ($newsFromApi->results as $article) {
+                $allNews[] = $this->arrangeNewsStructure($article, $category, 'newyork-news');
+            }
+        }
 
-
-        // Store the news data in the database
         foreach ($allNews as $article) {
             News::updateOrCreate(
                 [
@@ -72,16 +72,8 @@ class NewsService
                 $article
             );
         }
-
-        // Retrieve all the stored news from the database
-        $storedNews = News::all();
-
-        // Return the stored news
-        return $storedNews;
     }
 
-
-    // Normalize article data to a common structure
     private function arrangeNewsStructure($article, $category, $source)
     {
         switch ($source) {
@@ -107,17 +99,17 @@ class NewsService
                     'category' => $category,
                     'source' => $article->source->name ?? 'Unknown Source',
                 ];
-                // case 'bbc':
-                //     return [
-                //         'author' => $article['author'] ?? null,
-                //         'title' => $article['title'],
-                //         'description' => $article['description'],
-                //         'content' => $article['content'],
-                //         'image' => $article['image'],
-                //         'date' => $article['publishedAt'],
-                //         'category' => $article['category'] ?? null,
-                //         'source' => 'BBC News',
-                //     ];
+            case 'newyork-news':
+                return [
+                    'author' => $article->author ?? null,
+                    'title' => $article->title,
+                    'description' => $article->abstract,
+                    'content' => $article->abstract,
+                    'image' => $article->multimedia['0']->url ?? null,
+                    'date' => $article->updated_date,
+                    'category' => $category,
+                    'source' => $article->source->name ?? 'Newyork Times',
+                ];
             default:
                 return [];
         }
